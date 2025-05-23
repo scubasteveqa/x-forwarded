@@ -1,49 +1,83 @@
 from shiny import App, ui, render
-import os
+from flask import request
 
 app_ui = ui.page_fluid(
+    ui.h1("Client IP and Request Information"),
+    
     ui.card(
-        ui.card_header("Client IP Information"),
+        ui.card_header("IP Address Information"),
         ui.output_text("forwarded_for"),
         ui.output_text("remote_addr"),
-        ui.output_text("all_headers"),
-        ui.output_text("env_vars")
+    ),
+    
+    ui.card(
+        ui.card_header("All Request Headers"),
+        ui.output_ui("formatted_headers"),
+    ),
+    
+    ui.card(
+        ui.card_header("Request Details"),
+        ui.output_ui("request_details"),
     )
 )
 
 def server(input, output, session):
     @render.text
     def forwarded_for():
-        # Try to get from environment variables, which is how Posit Connect provides it
-        x_forwarded_for = os.environ.get("HTTP_X_FORWARDED_FOR", "Not available from env")
-        return f"X-Forwarded-For from environment: {x_forwarded_for}"
+        x_forwarded_for = request.headers.get("X-Forwarded-For", "Not available")
+        return f"X-Forwarded-For: {x_forwarded_for}"
     
     @render.text
     def remote_addr():
-        # Remote address might be in an environment variable
-        remote_addr = os.environ.get("REMOTE_ADDR", "Not available from env")
-        return f"Remote Address from environment: {remote_addr}"
+        remote_addr = request.remote_addr or "Not available"
+        return f"Remote Address: {remote_addr}"
     
-    @render.text
-    def all_headers():
-        # Display all headers that might contain IP information
-        headers = [
-            f"X-Real-IP: {os.environ.get('HTTP_X_REAL_IP', 'Not available')}",
-            f"X-Client-IP: {os.environ.get('HTTP_X_CLIENT_IP', 'Not available')}",
-            f"CF-Connecting-IP: {os.environ.get('HTTP_CF_CONNECTING_IP', 'Not available')}"
-        ]
-        return "\n".join(headers)
-    
-    @render.text
-    def env_vars():
-        # Display some relevant environment variables that might help debugging
-        env_vars = []
-        for key in sorted(os.environ.keys()):
-            if "ADDR" in key or "IP" in key or "HOST" in key or "FORWARD" in key:
-                env_vars.append(f"{key}: {os.environ[key]}")
+    @render.ui
+    def formatted_headers():
+        # Create a prettier display of headers with a table
+        headers = []
+        for name, value in request.headers.items():
+            headers.append(ui.tags.tr(
+                ui.tags.td(ui.strong(name)), 
+                ui.tags.td(value)
+            ))
         
-        if not env_vars:
-            return "No relevant environment variables found"
-        return "\n".join(env_vars)
+        if not headers:
+            return ui.p("No headers found")
+        
+        return ui.tags.table(
+            ui.tags.thead(
+                ui.tags.tr(
+                    ui.tags.th("Header Name"),
+                    ui.tags.th("Value")
+                )
+            ),
+            ui.tags.tbody(*headers),
+            class_="table table-striped table-bordered"
+        )
+    
+    @render.ui
+    def request_details():
+        # Display other useful request information
+        details = [
+            ("Method", request.method),
+            ("Path", request.path),
+            ("User Agent", request.user_agent.string),
+            ("Referrer", request.referrer or "None"),
+            ("Is Secure", str(request.is_secure)),
+            ("Host", request.host),
+        ]
+        
+        rows = []
+        for name, value in details:
+            rows.append(ui.tags.tr(
+                ui.tags.td(ui.strong(name)),
+                ui.tags.td(value)
+            ))
+        
+        return ui.tags.table(
+            ui.tags.tbody(*rows),
+            class_="table table-striped table-bordered"
+        )
 
 app = App(app_ui, server)
