@@ -1,4 +1,5 @@
 from shiny import App, ui, render, reactive
+from flask import request
 
 app_ui = ui.page_fluid(
     ui.h1("Client IP and Request Information"),
@@ -26,11 +27,8 @@ def server(input, output, session):
     # Use reactive.value to store request info
     req_info = reactive.value({})
     
-    @reactive.effect
-    @reactive.event(input.refresh)
-    def update_request_info():
-        from flask import request
-        
+    # Function to update request info (not decorated yet)
+    def _update_request_info():
         # Store all the request information we need
         headers = {name: value for name, value in request.headers.items()}
         
@@ -46,10 +44,16 @@ def server(input, output, session):
             "host": request.host,
         })
     
-    # Call the update function once on session init
+    # First effect: trigger on refresh button
+    @reactive.effect
+    @reactive.event(input.refresh)
+    def _():
+        _update_request_info()
+    
+    # Second effect: trigger on session init
     @reactive.effect
     def _():
-        update_request_info()
+        _update_request_info()
     
     @render.text
     def forwarded_for():
