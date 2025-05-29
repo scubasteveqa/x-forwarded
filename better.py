@@ -1,32 +1,28 @@
 import streamlit as st
 
 st.write("""
-# My first app
-Hello *everybody!*
-
-Thanks for using Posit Connect Cloud!
+# IP Spoofing Detection App
+This app shows how X-Forwarded-For headers are processed by infrastructure.
 """)
 
 # Get the X-Forwarded-For header
 xff = st.context.headers.get("X-Forwarded-For", "")
 
-# Parse the X-Forwarded-For chain
-spoofing_detected = False
-if xff and "," in xff:
+st.write("## X-Forwarded-For Header Analysis")
+if not xff:
+    st.write("❌ No X-Forwarded-For header found")
+elif "," in xff:
+    # Parse the chain
     ips = [ip.strip() for ip in xff.split(",")]
-    spoofing_detected = True
-    st.write("## Spoofing Attempt Detected!")
-    st.write(f"Potentially spoofed IP: {ips[0]}")
-    st.write(f"Real client IP: {ips[-1]}")
+    st.write("🚨 **Potential IP Spoofing Detected!**")
+    st.write(f"📌 First IP in chain (likely spoofed): **{ips[0]}**")
+    st.write(f"📌 Last IP in chain (likely real client): **{ips[-1]}**")
+    st.write("📌 Complete IP chain:")
+    for i, ip in enumerate(ips):
+        st.write(f"  {i+1}. {ip}")
+else:
+    st.write(f"📌 Single IP address: **{xff}**")
 
-# Show all headers for complete information
-st.write("## All Headers")
+# Show all headers for debugging
+st.write("## All Request Headers")
 st.write(dict(st.context.headers))
-
-# Show raw X-Forwarded-For value
-st.write("## Raw X-Forwarded-For Value")
-st.write(xff)
-
-# Optionally keep the other sections
-st.write("## Query parameters")
-st.write(st.query_params)
